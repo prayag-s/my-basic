@@ -1,0 +1,42 @@
+body {
+    background-color: #0000AA; /* Classic GW-BASIC Blue */
+    color: #FFFFFF;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 16px;
+}
+
+#screen {
+    padding: 10px;
+}
+
+#output p {
+    margin: 0;
+    line-height: 1.2;
+    /* This helps preserve whitespace like a real terminal */
+    white-space: pre-wrap; 
+}
+
+#input-line {
+    display: flex;
+    align-items: center;
+}
+
+#prompt {
+    margin-right: 8px;
+}
+
+#command {
+    outline: none; /* Removes the border when you click on it */
+    flex-grow: 1;
+}
+
+#cursor {
+    animation: blink 1s step-end infinite;
+    font-weight: bold;
+}
+
+/* Blinking animation for the cursor */
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
