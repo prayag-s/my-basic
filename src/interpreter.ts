@@ -10,7 +10,8 @@ import {
     VariableExpression,    // Ensure this is imported
     BinaryExpression,
     GroupingExpression,
-    RemStatement, ClsStatement
+    RemStatement, ClsStatement,
+    InputStatement
 } from "./ast.js";
 import { Parser } from "./parser.js";
 import { Lexer } from "./lexer.js";
@@ -33,18 +34,51 @@ export class Interpreter {
     private parser: Parser;
     private environment: Environment;
 
-    constructor(private outputElement: HTMLElement) {
+    // --- ADD NEW PROPERTIES ---
+    private isAwaitingInput: boolean = false;
+    // This is a "resolver" function for a promise we'll create.
+    private inputResolver: ((value: string) => void) | null = null;
+
+    constructor(private outputElement: HTMLElement,  private commandElement: HTMLElement) {
         this.lexer = new Lexer(); 
         this.parser = new Parser();
         this.environment = new Environment();
     }
 
-    public log(message: string): void {
-        const p = document.createElement('p');
-        p.innerHTML = String(message).replace(/ /g, ' ');
-        this.outputElement.appendChild(p);
-        this.outputElement.parentElement!.scrollTop = this.outputElement.scrollHeight;
+    public handleUserInput(text: string): void {
+        if (this.isAwaitingInput && this.inputResolver) {
+            // If we are waiting for input, resolve the promise.
+            this.submitInput(text);
+        } else {
+            // Otherwise, treat it as a new immediate command.
+            this.log(`>${text}`);
+            this.executeImmediate(text.trim());
+        }
     }
+
+     // This is the public-facing method our App will call
+    private submitInput(text: string): void {
+        if (!this.isAwaitingInput || !this.inputResolver) return;
+        
+        this.inputResolver(text); // Resolve the promise with the user's text
+        
+        // Clean up
+        this.isAwaitingInput = false;
+        this.inputResolver = null;
+        this.commandElement.textContent = '';
+        this.commandElement.blur(); // Un-focus the input element
+    }
+
+   public log(message: string, sameLine: boolean = false): void {
+    if (sameLine && this.currentLineElement) {
+        this.currentLineElement.innerHTML += message.replace(/ /g, ' ');
+    } else {
+        this.currentLineElement = document.createElement('p');
+        this.currentLineElement.innerHTML = message.replace(/ /g, ' ');
+        this.outputElement.appendChild(this.currentLineElement);
+    }
+    this.outputElement.parentElement!.scrollTop = this.outputElement.scrollHeight;
+}
 
     public executeImmediate(code: string): void {
         const lineMatch = code.match(/^(\d+)\s*(.*)/);
@@ -80,6 +114,15 @@ export class Interpreter {
         }
     }
     
+    // This private method returns a promise that resolves when the user types.
+    private waitForInput(): Promise<string> {
+        return new Promise((resolve) => {
+            this.isAwaitingInput = true;
+            this.inputResolver = resolve;
+            this.commandElement.focus(); // Focus the input element
+        });
+    }
+
     private listProgram(): void {
         // Get all line numbers, sort them numerically, and print each one.
         const sortedLines = Array.from(this.program.keys()).sort((a, b) => a - b);
@@ -165,8 +208,31 @@ export class Interpreter {
         this.environment.clear();
     }
 
+    private currentLineElement: HTMLParagraphElement | null = null;
+
     private async executeStatement(statement: Statement): Promise<number | null> {
         switch (statement.kind) {
+            case "InputStatement":
+                const inputStmt = statement as InputStatement;
+                let promptText = "? ";
+                if (inputStmt.prompt) {
+                    promptText = String(this.evaluateExpression(inputStmt.prompt)) + " ";
+                }
+                
+                this.log(promptText, true);
+                
+                const userInput = await this.waitForInput();
+                
+                // And give this a unique name, e.g., inputVarName
+                const inputVarName = inputStmt.variable.name;
+                let valueToStore: string | number = userInput;
+
+                if (!inputVarName.endsWith('$')) {
+                    valueToStore = parseFloat(userInput) || 0;
+                }
+                
+                this.environment.set(inputVarName, valueToStore);
+                return null;
             case "PrintStatement":
                 const value = this.evaluateExpression((statement as PrintStatement).value);
                 this.log(String(value));

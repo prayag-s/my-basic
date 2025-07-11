@@ -4,7 +4,7 @@ import { Token, TokenType } from "./token.js";
 import {
     Statement, PrintStatement, GotoStatement, LetStatement,
     Expression, LiteralExpression, VariableExpression, BinaryExpression, GroupingExpression,
-    RemStatement, ClsStatement
+    RemStatement, ClsStatement, InputStatement
 } from "./ast.js";
 
 export class Parser {
@@ -32,6 +32,7 @@ export class Parser {
         if (this.check('LET')) return this.letStatement();
         if (this.check('REM')) return this.remStatement(); // <-- ADD
         if (this.check('CLS')) return this.clsStatement(); // <-- ADD
+        if (this.check('INPUT')) return this.inputStatement();
 
         // An implicit LET must start with an identifier.
         if (this.check('IDENTIFIER')) return this.implicitLetStatement();
@@ -39,7 +40,31 @@ export class Parser {
         throw this.error(this.peek(), "SYNTAX ERROR");
     }
     
-     private printStatement(): PrintStatement {
+    private inputStatement(): InputStatement {
+        this.consume('INPUT', "Internal Parser Error");
+        
+        let prompt: Expression | null = null;
+        
+        // In GW-BASIC, a prompt is a literal string followed by a semicolon.
+        if (this.check('STRING')) {
+            prompt = this.expression();
+            // The separator MUST be a semicolon for a prompt/variable pair.
+            this.consume('SEMICOLON', "Expect ';' after INPUT prompt."); // We need to add SEMICOLON token
+        }
+
+        const potentialVariable = this.expression();
+        if (potentialVariable.kind !== "VariableExpression") {
+            throw this.error(this.peek(), "Expect a variable name for INPUT.");
+        }
+
+        return {
+            kind: "InputStatement",
+            prompt,
+            variable: potentialVariable as VariableExpression
+        };
+    }
+    
+    printStatement(): PrintStatement {
         this.consume('PRINT', "Internal Parser Error");
         const value = this.expression();
         // REMOVE THE EOF CHECK FROM HERE
@@ -87,10 +112,14 @@ export class Parser {
         const nameToken = this.consume('IDENTIFIER', "SYNTAX ERROR");
         this.consume('EQUAL', "SYNTAX ERROR");
         const value = this.expression();
-        // REMOVE THE EOF CHECK FROM HERE
-        return { kind: "LetStatement", variable: { kind: "VariableExpression", name: nameToken.lexeme }, value };
-    }
 
+        return {
+            kind: "LetStatement",
+            // Also use the 'as' assertion here for absolute safety
+            variable: { kind: "VariableExpression", name: nameToken.lexeme } as VariableExpression,
+            value: value
+        };
+    }
     // --- Expression Parser ---
 
     private expression(): Expression {

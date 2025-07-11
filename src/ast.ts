@@ -69,3 +69,10 @@ export interface RemStatement extends Statement {
 export interface ClsStatement extends Statement {
     kind: "ClsStatement";
 }
+
+// Represents an INPUT statement, e.g., INPUT "Your name?"; N$
+export interface InputStatement extends Statement {
+    kind: "InputStatement";
+    prompt: Expression | null; // The optional prompt string
+    variable: VariableExpression; // The variable to store the result in
+}

@@ -6,7 +6,7 @@ export type TokenType =
     | 'STRING' | 'NUMBER'
 
     // Keywords
-    | 'PRINT' | 'GOTO' | 'LET' | 'REM' | 'CLS' | 'LIST'
+    | 'PRINT' | 'GOTO' | 'LET' | 'REM' | 'CLS' | 'LIST' | 'INPUT'
 
     // Identifiers (variable names)
     | 'IDENTIFIER'
@@ -15,6 +15,8 @@ export type TokenType =
     | 'EQUAL' | 'PLUS' | 'MINUS' | 'STAR' | 'SLASH'
 
     | 'LEFT_PAREN' | 'RIGHT_PAREN'
+
+    | 'COMMA' | 'SEMICOLON'
 
     // End of File/Line
     | 'EOF';

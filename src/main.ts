@@ -17,7 +17,7 @@ class App {
         }
 
         // Create our single interpreter instance. It handles its own lexer and parser.
-        this.interpreter = new Interpreter(outputElement);
+        this.interpreter = new Interpreter(outputElement, commandElement);
 
         this.setupEventListeners(commandElement);
         this.interpreter.log("My-BASIC 1.0 (AST Edition)");
@@ -30,13 +30,13 @@ class App {
                 event.preventDefault();
                 const inputText = commandElement.textContent || '';
                 
-                // Echo the command
-                this.interpreter.log(`>${inputText}`);
+                // The App's only job is to pass the user's text to the interpreter.
+                // The interpreter will handle the logic of whether it's a command
+                // or input for a prompt.
+                this.interpreter.handleUserInput(inputText);
                 
-                // The interpreter handles everything from here.
-                this.interpreter.executeImmediate(inputText.trim());
-                
-                // Clear the input line for the next command
+                // We clear the input line AFTER the interpreter has handled it.
+                // The interpreter will handle blurring/focusing.
                 commandElement.textContent = '';
             }
         });

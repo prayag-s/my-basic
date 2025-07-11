@@ -9,7 +9,8 @@ const keywords: Record<string, TokenType> = {
     "LET": "LET",
     "REM": "REM",       // <-- ADD
     "CLS": "CLS",       // <-- ADD
-    "LIST": "LIST"
+    "LIST": "LIST",
+    "INPUT": "INPUT"
 };
 
 export class Lexer {
@@ -40,6 +41,8 @@ export class Lexer {
         const c = this.advance();
         switch (c) {
             // Single-character tokens (we'll add more later)
+            case ',': this.addToken('COMMA'); break; 
+            case ';': this.addToken('SEMICOLON'); break
             case '(': this.addToken('LEFT_PAREN'); break;
             case ')': this.addToken('RIGHT_PAREN'); break;
             case '=': this.addToken('EQUAL'); break;
@@ -98,20 +101,22 @@ export class Lexer {
     }
 
     private string(): void {
+        // Loop until we find the closing quote or hit the end of the line
         while (this.peek() !== '"' && !this.isAtEnd()) {
-            if (this.peek() === '\n') this.line++;
+            // A newline inside a string is not allowed in GW-BASIC and would end the line.
+            // We can just advance past any character.
             this.advance();
         }
 
         if (this.isAtEnd()) {
-            console.error(`[Line ${this.line}] Unterminated string.`);
-            return;
+            // This is correct, an unterminated string is an error.
+            throw new Error("UNTERMINATED STRING");
         }
 
-        // The closing ".
+        // Consume the closing ".
         this.advance();
 
-        // Trim the surrounding quotes.
+        // Get the value, excluding the quotes.
         const value = this.source.substring(this.start + 1, this.current - 1);
         this.addToken('STRING', value);
     }
