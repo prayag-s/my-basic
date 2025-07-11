@@ -1,7 +1,19 @@
 // src/interpreter.ts
 
-import { Statement, Expression, PrintStatement, GotoStatement, LiteralExpression } from "./ast.js";
+import {
+    Statement,
+    Expression,
+    PrintStatement,
+    GotoStatement,
+    LetStatement,         // Ensure this is imported
+    LiteralExpression,
+    VariableExpression,    // Ensure this is imported
+    BinaryExpression,
+    GroupingExpression
+} from "./ast.js";
 import { Parser } from "./parser.js";
+import { Lexer } from "./lexer.js";
+import { Environment } from "./environment.js";
 
 // A helper to pause execution and let the browser render.
 function tick(): Promise<void> {
@@ -16,10 +28,14 @@ export class Interpreter {
     private isRunning: boolean = false;
     private stopExecutionFlag: boolean = false;
     
+    private lexer: Lexer; 
     private parser: Parser;
+    private environment: Environment;
 
     constructor(private outputElement: HTMLElement) {
+        this.lexer = new Lexer(); 
         this.parser = new Parser();
+        this.environment = new Environment();
     }
 
     public log(message: string): void {
@@ -39,33 +55,68 @@ export class Interpreter {
             } else {
                 this.program.delete(lineNumber);
             }
-        } else if (code.trim().toUpperCase() === "RUN") {
-            this.run();
-        } else {
-            // We'll add more immediate commands like LIST later
-            this.log("?SYNTAX ERROR");
-            this.log("Ready");
+            // No "Ready" prompt after entering a line, just like the original.
+            return; 
+        }
+
+        // --- ADD THE LOGIC FOR IMMEDIATE COMMANDS HERE ---
+        const command = code.trim().toUpperCase();
+        switch (command) {
+            case "RUN":
+                this.run();
+                break; // run() handles its own "Ready" prompt
+
+            case "LIST":
+                this.listProgram(); // Call a new helper method
+                this.log("Ready");
+                break;
+
+            default:
+                this.log("?SYNTAX ERROR");
+                this.log("Ready");
+                break;
         }
     }
     
+    private listProgram(): void {
+        // Get all line numbers, sort them numerically, and print each one.
+        const sortedLines = Array.from(this.program.keys()).sort((a, b) => a - b);
+        for (const lineNumber of sortedLines) {
+            const code = this.program.get(lineNumber);
+            this.log(`${lineNumber} ${code}`);
+        }
+    }
+
     // The RUN command is now async to allow for non-blocking execution
-    public async run(): Promise<void> {
+     public async run(): Promise<void> {
         if (this.isRunning) return;
 
-        // --- PARSE PHASE ---
+        // Clear state for the new run
+        this.environment.clear();
+        this.parsedProgram.clear();
+        
+         // --- PARSE PHASE (This is now the Lexer -> Parser pipeline) ---
         this.parsedProgram.clear();
         const sortedLines = Array.from(this.program.keys()).sort((a, b) => a - b);
-        
-        try {
-            for (const lineNumber of sortedLines) {
+        let hasParsingFailed = false;
+
+        for (const lineNumber of sortedLines) {
+            try {
                 const code = this.program.get(lineNumber)!;
-                this.parsedProgram.set(lineNumber, this.parser.parseLine(code));
+                // 1. Lexical Analysis (Scanning)
+                const tokens = this.lexer.scanTokens(code);
+                // 2. Syntactic Analysis (Parsing)
+                const statement = this.parser.parse(tokens);
+                this.parsedProgram.set(lineNumber, statement);
+            } catch (e) {
+                this.log(`?${(e as Error).message.toUpperCase()} IN ${lineNumber}`);
+                this.log("Ready");
+                hasParsingFailed = true;
+                break;
             }
-        } catch (e) {
-            this.log(`?${(e as Error).message.toUpperCase()}`);
-            this.log("Ready");
-            return;
         }
+        
+        if (hasParsingFailed) return;
         
         // --- EXECUTION PHASE ---
         this.isRunning = true;
@@ -82,23 +133,21 @@ export class Interpreter {
                 if (jumpTo !== null) {
                     const newIndex = sortedLines.indexOf(jumpTo);
                     if (newIndex === -1) {
-                        throw new Error("Undefined line number in GOTO");
+                        throw new Error("UNDEFINED LINE NUMBER");
                     }
-                    i = newIndex; // Jump to the new line
+                    i = newIndex;
                 } else {
-                    i++; // Go to the next line
+                    i++;
                 }
-
             } catch (e) {
                 this.log(`?${(e as Error).message.toUpperCase()} IN ${currentLineNumber}`);
                 this.stopExecutionFlag = true;
             }
 
-            await tick(); // Let the browser breathe
+            await tick();
         }
         
         this.isRunning = false;
-        // We'll add the "Break in XXX" message later when we re-implement Ctrl+C
         this.log("Ready");
     }
 
@@ -113,14 +162,55 @@ export class Interpreter {
 
             case "GotoStatement":
                 return (statement as GotoStatement).targetLine;
+
+             case "LetStatement": // <-- ADD THIS CASE
+                const letStmt = statement as LetStatement;
+                const varName = letStmt.variable.name;
+                const valueToAssign = this.evaluateExpression(letStmt.value);
+                this.environment.set(varName, valueToAssign);
+                return null;
         }
         return null;
     }
 
-    private evaluateExpression(expression: Expression): string | number {
+     private evaluateExpression(expression: Expression): string | number {
         switch (expression.kind) {
             case "LiteralExpression":
                 return (expression as LiteralExpression).value;
+            
+            case "VariableExpression":
+                const varName = (expression as VariableExpression).name;
+                return this.environment.get(varName);
+            
+                // --- ADD THIS NEW CASE ---
+            case "BinaryExpression":
+                const binExpr = expression as BinaryExpression;
+                // Recursively evaluate the left and right sides
+                const left = this.evaluateExpression(binExpr.left);
+                const right = this.evaluateExpression(binExpr.right);
+
+                // Ensure both are numbers for math operations
+                if (typeof left !== 'number' || typeof right !== 'number') {
+                    // In BASIC, this would be a "Type mismatch" error
+                    throw new Error("TYPE MISMATCH");
+                }
+
+                // Perform the operation
+                switch (binExpr.operator.type) {
+                    case 'PLUS': return left + right;
+                    case 'MINUS': return left - right;
+                    case 'STAR': return left * right;
+                    case 'SLASH': return left / right;
+                }
+
+            case "GroupingExpression":
+                // The value of a grouping is just the value of the expression it contains.
+                // We just evaluate the inner part and return it up.
+                return this.evaluateExpression((expression as GroupingExpression).expression);
+                
+            // This default case fixes the "lacks ending return" error.
+            default:
+                throw new Error("INTERNAL ERROR: Unknown expression type");
         }
     }
 }

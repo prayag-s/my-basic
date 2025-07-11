@@ -1,4 +1,5 @@
 // src/ast.ts
+import { Token } from "./token.js"
 
 // The base interface for any executable statement (PRINT, GOTO, IF, etc.)
 export interface Statement {
@@ -29,4 +30,31 @@ export interface GotoStatement extends Statement {
 export interface LiteralExpression extends Expression {
     kind: "LiteralExpression";
     value: string | number;
+}
+
+// Represents reading a variable's value, e.g., the 'A' in 'PRINT A'
+export interface VariableExpression extends Expression {
+    kind: "VariableExpression";
+    name: string; // The name of the variable, e.g., "A" or "B$"
+}
+
+// Represents an assignment statement, e.g., 'LET A = 10'
+export interface LetStatement extends Statement {
+    kind: "LetStatement";
+    variable: VariableExpression; // The variable to assign to
+    value: Expression;            // The expression providing the value
+}
+
+
+// Represents an operation with a left and right side, e.g., A + 5
+export interface BinaryExpression extends Expression {
+    kind: "BinaryExpression";
+    left: Expression;
+    operator: Token; // The token for the operator, e.g., PLUS, MINUS
+    right: Expression;
+}
+
+export interface GroupingExpression extends Expression {
+    kind: "GroupingExpression";
+    expression: Expression; // The expression inside the parentheses
 }

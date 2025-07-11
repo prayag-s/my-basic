@@ -3,7 +3,7 @@
 import { Interpreter } from "./interpreter.js";
 
 class App {
-    private interpreter!: Interpreter; 
+    private interpreter!: Interpreter;
 
     constructor() {
         // Find the necessary HTML elements
@@ -12,37 +12,43 @@ class App {
         const inputLineElement = document.getElementById('input-line') as HTMLElement;
 
         if (!outputElement || !commandElement || !inputLineElement) {
-            console.error("Fatal Error: A required HTML element was not found.");
-            return;
+            // Throwing an error is better for fatal conditions
+            throw new Error("Fatal Error: A required HTML element was not found.");
         }
 
-        // Create our interpreter instance
+        // Create our single interpreter instance. It handles its own lexer and parser.
         this.interpreter = new Interpreter(outputElement);
-        
+
         this.setupEventListeners(commandElement);
-        this.interpreter.log("My-BASIC 1.0 (TS Edition)");
+        this.interpreter.log("My-BASIC 1.0 (AST Edition)");
         this.interpreter.log("Ready");
     }
 
     private setupEventListeners(commandElement: HTMLElement): void {
-        // For now, we'll just make the RUN command work
         commandElement.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
                 event.preventDefault();
                 const inputText = commandElement.textContent || '';
                 
-                this.interpreter.log(`>${inputText}`); // Echo command
-
-                // The interpreter now handles all command logic
+                // Echo the command
+                this.interpreter.log(`>${inputText}`);
+                
+                // The interpreter handles everything from here.
                 this.interpreter.executeImmediate(inputText.trim());
                 
+                // Clear the input line for the next command
                 commandElement.textContent = '';
             }
         });
     }
 }
 
-// Start the application
+// Start the application safely
 window.addEventListener('DOMContentLoaded', () => {
-    new App();
+    try {
+        new App();
+    } catch (e) {
+        console.error(e);
+        document.body.innerHTML = `<div style="color:white;font-family:monospace;padding:10px;">${(e as Error).message}</div>`;
+    }
 });
