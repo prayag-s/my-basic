@@ -9,7 +9,8 @@ import {
     LiteralExpression,
     VariableExpression,    // Ensure this is imported
     BinaryExpression,
-    GroupingExpression
+    GroupingExpression,
+    RemStatement, ClsStatement
 } from "./ast.js";
 import { Parser } from "./parser.js";
 import { Lexer } from "./lexer.js";
@@ -70,7 +71,8 @@ export class Interpreter {
                 this.listProgram(); // Call a new helper method
                 this.log("Ready");
                 break;
-
+            case "CLS": this.clearScreen(); this.log("Ready"); break; // <-- ADD immediate CLS
+            case "NEW": this.newProgram(); this.log("Ready"); break;
             default:
                 this.log("?SYNTAX ERROR");
                 this.log("Ready");
@@ -153,6 +155,16 @@ export class Interpreter {
 
     // --- Private Execution Helpers ---
 
+     private clearScreen(): void {
+        this.outputElement.innerHTML = '';
+    }
+
+    private newProgram(): void {
+        this.program.clear();
+        this.parsedProgram.clear();
+        this.environment.clear();
+    }
+
     private async executeStatement(statement: Statement): Promise<number | null> {
         switch (statement.kind) {
             case "PrintStatement":
@@ -168,6 +180,14 @@ export class Interpreter {
                 const varName = letStmt.variable.name;
                 const valueToAssign = this.evaluateExpression(letStmt.value);
                 this.environment.set(varName, valueToAssign);
+                return null;
+
+            // A REM statement does absolutely nothing. We just ignore it.
+            case "RemStatement":
+                return null;
+
+            case "ClsStatement":
+                this.clearScreen();
                 return null;
         }
         return null;
@@ -207,7 +227,7 @@ export class Interpreter {
                 // The value of a grouping is just the value of the expression it contains.
                 // We just evaluate the inner part and return it up.
                 return this.evaluateExpression((expression as GroupingExpression).expression);
-                
+
             // This default case fixes the "lacks ending return" error.
             default:
                 throw new Error("INTERNAL ERROR: Unknown expression type");

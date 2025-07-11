@@ -6,7 +6,10 @@ import { Token, TokenType } from "./token.js";
 const keywords: Record<string, TokenType> = {
     "PRINT": "PRINT",
     "GOTO": "GOTO",
-    "LET": "LET"
+    "LET": "LET",
+    "REM": "REM",       // <-- ADD
+    "CLS": "CLS",       // <-- ADD
+    "LIST": "LIST"
 };
 
 export class Lexer {

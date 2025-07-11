@@ -58,3 +58,14 @@ export interface GroupingExpression extends Expression {
     kind: "GroupingExpression";
     expression: Expression; // The expression inside the parentheses
 }
+
+// Represents a REM (remark/comment) statement. It contains no executable data.
+export interface RemStatement extends Statement {
+    kind: "RemStatement";
+    comment: string;
+}
+
+// Represents a CLS (clear screen) statement.
+export interface ClsStatement extends Statement {
+    kind: "ClsStatement";
+}

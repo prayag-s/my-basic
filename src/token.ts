@@ -6,7 +6,7 @@ export type TokenType =
     | 'STRING' | 'NUMBER'
 
     // Keywords
-    | 'PRINT' | 'GOTO' | 'LET'
+    | 'PRINT' | 'GOTO' | 'LET' | 'REM' | 'CLS' | 'LIST'
 
     // Identifiers (variable names)
     | 'IDENTIFIER'

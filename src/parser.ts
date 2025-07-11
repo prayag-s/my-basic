@@ -3,7 +3,8 @@
 import { Token, TokenType } from "./token.js";
 import {
     Statement, PrintStatement, GotoStatement, LetStatement,
-    Expression, LiteralExpression, VariableExpression, BinaryExpression, GroupingExpression
+    Expression, LiteralExpression, VariableExpression, BinaryExpression, GroupingExpression,
+    RemStatement, ClsStatement
 } from "./ast.js";
 
 export class Parser {
@@ -29,6 +30,8 @@ export class Parser {
         if (this.check('PRINT')) return this.printStatement();
         if (this.check('GOTO')) return this.gotoStatement();
         if (this.check('LET')) return this.letStatement();
+        if (this.check('REM')) return this.remStatement(); // <-- ADD
+        if (this.check('CLS')) return this.clsStatement(); // <-- ADD
 
         // An implicit LET must start with an identifier.
         if (this.check('IDENTIFIER')) return this.implicitLetStatement();
@@ -36,15 +39,17 @@ export class Parser {
         throw this.error(this.peek(), "SYNTAX ERROR");
     }
     
-    private printStatement(): PrintStatement { // <-- Return specific type
+     private printStatement(): PrintStatement {
         this.consume('PRINT', "Internal Parser Error");
         const value = this.expression();
+        // REMOVE THE EOF CHECK FROM HERE
         return { kind: "PrintStatement", value };
     }
 
-    private gotoStatement(): GotoStatement { // <-- Return specific type
+    private gotoStatement(): GotoStatement {
         this.consume('GOTO', "Internal Parser Error");
         const target = this.consume('NUMBER', "SYNTAX ERROR");
+        // REMOVE THE EOF CHECK FROM HERE
         return { kind: "GotoStatement", targetLine: target.literal };
     }
 
@@ -57,17 +62,33 @@ export class Parser {
         return this.assignmentLogic();
     }
     
-    private assignmentLogic(): LetStatement { // <-- Return specific type
+     private remStatement(): RemStatement {
+        this.consume('REM', "Internal Parser Error");
+        // A REM statement consumes the rest of the line as a raw string,
+        // but it's not stored in a token. We need to look at the original source.
+        // For now, we can just consume the EOF and store an empty comment.
+        // A more advanced implementation would capture the text.
+        let comment = "";
+        // We'll just consume to the end of the line.
+        while(!this.isAtEnd()) {
+            comment += this.advance().lexeme + " ";
+        }
+        return { kind: "RemStatement", comment: comment.trim() };
+    }
+
+    // --- THIS IS THE CORRECTED FUNCTION ---
+    private clsStatement(): ClsStatement {
+        this.consume('CLS', "Internal Parser Error");
+        // We do NOT consume the EOF token here. The main parse() method will check for it.
+        return { kind: "ClsStatement" };
+    }
+
+    private assignmentLogic(): LetStatement {
         const nameToken = this.consume('IDENTIFIER', "SYNTAX ERROR");
         this.consume('EQUAL', "SYNTAX ERROR");
         const value = this.expression();
-
-        const variable: VariableExpression = {
-            kind: "VariableExpression",
-            name: nameToken.lexeme
-        };
-
-        return { kind: "LetStatement", variable, value };
+        // REMOVE THE EOF CHECK FROM HERE
+        return { kind: "LetStatement", variable: { kind: "VariableExpression", name: nameToken.lexeme }, value };
     }
 
     // --- Expression Parser ---
@@ -137,7 +158,7 @@ export class Parser {
             return groupingExpr;
         }
         // --- END ADDED LOGIC ---
-        
+
         throw this.error(this.peek(), "SYNTAX ERROR");
     }
     
